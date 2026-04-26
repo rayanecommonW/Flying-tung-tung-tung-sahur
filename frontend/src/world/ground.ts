@@ -58,13 +58,38 @@ export function addGround(scene: THREE.Scene): { city: THREE.Mesh; outer: THREE.
   city.position.y = 0.0;
   scene.add(city);
 
-  // Outer green terrain plane
+  // Outer green terrain ring. We previously used a single huge plane sat
+  // 0.05 below the pavement, but with the camera's far plane at 5000 the
+  // depth-buffer precision over the city area dropped below that gap and
+  // produced visible z-fighting (the "epileptic" flicker reported in QA).
+  // Fix: build a rectangular ring with a city-sized hole so the two
+  // surfaces never overlap, AND drop the ring 1 unit below the pavement
+  // for an extra safety margin (it's never visible from above because the
+  // pavement is opaque).
   const outerSize = cityWorld * 4;
+  const outerHalf = outerSize / 2;
+  const cityHalf = cityWorld / 2;
+
+  const ringShape = new THREE.Shape();
+  ringShape.moveTo(-outerHalf, -outerHalf);
+  ringShape.lineTo(outerHalf, -outerHalf);
+  ringShape.lineTo(outerHalf, outerHalf);
+  ringShape.lineTo(-outerHalf, outerHalf);
+  ringShape.lineTo(-outerHalf, -outerHalf);
+
+  const hole = new THREE.Path();
+  hole.moveTo(-cityHalf, -cityHalf);
+  hole.lineTo(cityHalf, -cityHalf);
+  hole.lineTo(cityHalf, cityHalf);
+  hole.lineTo(-cityHalf, cityHalf);
+  hole.lineTo(-cityHalf, -cityHalf);
+  ringShape.holes.push(hole);
+
   const outerMat = new THREE.MeshLambertMaterial({ color: 0x4f6b3b });
-  const outerGeom = new THREE.PlaneGeometry(outerSize, outerSize);
+  const outerGeom = new THREE.ShapeGeometry(ringShape);
   const outer = new THREE.Mesh(outerGeom, outerMat);
   outer.rotation.x = -Math.PI / 2;
-  outer.position.y = -0.05; // just below pavement to avoid z-fighting
+  outer.position.y = -1.0;
   scene.add(outer);
 
   return { city, outer };

@@ -20,8 +20,12 @@ let activeMixers: THREE.AnimationMixer[] = [];
  * Per-render-frame: pose existing remote planes. New planes are added via
  * the `ensureRemotePlane` async path (called from `main.ts` on welcome /
  * playerJoined since GLB load is async).
+ *
+ * NOTE: animation mixers are advanced separately by `tickRemoteMixers(dt)`
+ * during the fixed-timestep update so they receive a real `dt` (in seconds)
+ * rather than the render-loop interpolation alpha.
  */
-export function renderRemotePlanes(state: GameState, dt: number): void {
+export function renderRemotePlanes(state: GameState): void {
   // 1. Pose existing visuals.
   for (const [id, view] of state.remotePlayers) {
     const visual = state.remotePlayerVisuals.get(id);
@@ -40,8 +44,14 @@ export function renderRemotePlanes(state: GameState, dt: number): void {
       state.remotePlayerVisuals.delete(id);
     }
   }
+}
 
-  // 3. Tick any animation mixers (so wing flaps etc. keep playing).
+/**
+ * Per-fixed-tick: advance every active remote-plane animation mixer by
+ * the supplied `dt` (seconds). Called from the game loop's `update`
+ * callback so the dt is consistent (1/60 s), not the render alpha.
+ */
+export function tickRemoteMixers(dt: number): void {
   for (const m of activeMixers) m.update(dt);
 }
 

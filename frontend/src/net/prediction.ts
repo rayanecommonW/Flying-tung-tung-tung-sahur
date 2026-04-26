@@ -19,7 +19,7 @@
  * respawn).
  */
 
-import { NET, vec3Distance, vec3Lerp, quatSlerp } from '@flying-tung-tung/shared';
+import { NET, PLAYER, vec3Distance, vec3Lerp, quatSlerp } from '@flying-tung-tung/shared';
 import type { InputPayload, PlayerStateDto } from '@flying-tung-tung/shared';
 import type { GameState } from '../game/gameState';
 import type { NetState, PendingInput } from './netState';
@@ -68,17 +68,26 @@ export function reconcile(
     net.inputRing.shift();
   }
 
-  // Always adopt stepwise authoritative scalars.
-  state.player.lives = selfDto.lives;
-  // Map server's `alive` to client's `dead` flag.
+  // Stepwise authoritative scalars — but the server has no city geometry
+  // in v1, so building damage is owned by the client. We therefore:
+  //  - take the MIN of (client lives, server lives) so server-side
+  //    projectile hits *and* client-side building hits both stick;
+  //  - keep the client's `dead` flag sticky until the server explicitly
+  //    respawns us (server lives reset to MAX_LIVES with alive = true).
   const wasDead = state.player.dead;
-  const nowDead = !selfDto.alive;
+  state.player.lives = Math.min(state.player.lives, selfDto.lives);
+
+  const serverRespawned = selfDto.alive && selfDto.lives >= PLAYER.MAX_LIVES;
+  const nowDead = wasDead ? !serverRespawned : !selfDto.alive;
   state.player.dead = nowDead;
+
   if (!wasDead && nowDead && state.deathTime < 0) {
     state.deathTime = state.time;
   }
   if (wasDead && !nowDead) {
-    // Server respawned us — reset client-side death book-keeping.
+    // Server respawned us — reset client-side death book-keeping and adopt
+    // the server's authoritative full-lives count.
+    state.player.lives = selfDto.lives;
     state.deathTime = -1;
   }
 

@@ -47,7 +47,7 @@ export const PLANE = {
   /** Cooldown between dodges (sec) — anti-spam. */
   DODGE_COOLDOWN: 0.9,
   /** Player collision sphere radius for plane-vs-building hit tests. */
-  COLLIDER_RADIUS: 1.8,
+  COLLIDER_RADIUS: 3.6,
   /** Hard floor: plane never dives below this Y. */
   WORLD_FLOOR_Y: 2,
   /** Hard ceiling. */
@@ -223,8 +223,13 @@ export const NET = {
   CLIENT_INPUT_SEND_HZ: 30,
 
   // ===== Interpolation =====
-  /** Render-time delay behind serverTimeNow() for remote-entity interp (ms). */
-  INTERP_DELAY_MS: 100,
+  /**
+   * Render-time delay behind serverTimeNow() for remote-entity interp (ms).
+   * With SNAPSHOT_HZ = 20 (50 ms stride) we keep ≥ 3 samples buffered so a
+   * single dropped/late snapshot doesn't underrun the interpolator and
+   * cause the visible "buffering" stutter on remote planes.
+   */
+  INTERP_DELAY_MS: 150,
   /** Max ms past last sample we'll extrapolate before freezing. */
   EXTRAPOLATION_CAP_MS: 150,
   /** Per-entity ring-buffer size for snapshot history. 60 ≈ 3 s @ 20 Hz. */
@@ -268,7 +273,7 @@ export const NET = {
 
   // ===== Hit detection =====
   /** Sphere radius around a player for projectile-hit checks. */
-  HIT_RADIUS_PLAYER: 2.5,
+  HIT_RADIUS_PLAYER: 5.0,
   /** Sphere radius for a projectile (matches PROJECTILE.RADIUS). */
   HIT_RADIUS_PROJECTILE: 0.7,
   /** Lives subtracted per projectile hit. */
@@ -281,7 +286,7 @@ export const NET = {
    * the GLB bbox (~3.5 m for tung-tung.glb); the server has no GLB so we
    * freeze it as a constant. See `plans/networking/03_SERVER_SIM.md`.
    */
-  PLAYER_NOSE_OFFSET: 3.5,
+  PLAYER_NOSE_OFFSET: 7.0,
   /** Radius around plaza centre for the 8-spawn ring (world units). */
   SPAWN_RING_RADIUS: 60,
   /** Spawn altitude above the ground. */

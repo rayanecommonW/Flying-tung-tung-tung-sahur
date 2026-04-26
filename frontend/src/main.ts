@@ -27,6 +27,7 @@ import { updateNetEventsSystem } from './game/systems/netEventsSystem';
 import {
   ensureRemotePlane,
   renderRemotePlanes,
+  tickRemoteMixers,
 } from './game/systems/remotePlanesSystem';
 import { hideLoading, setLoadingMessage, updateHud } from './game/systems/hudSystem';
 import { startNetSystem, netUpdate, netRender } from './net/netSystem';
@@ -144,11 +145,20 @@ async function bootstrap(): Promise<void> {
         // `netUpdate` instead.
         updateNetEventsSystem(state, trail);
         netUpdate(state, netSys);
+        // Advance remote-plane animation mixers with a real dt so their
+        // wing flaps etc. don't jitter on the render-loop alpha.
+        tickRemoteMixers(dt);
       } else {
         updateProjectileSystem(state, plane, pmesh, trail, dt);
         updateCollisionSystem(state, city, trail);
-        updatePlayerCollisionSystem(state, city, trail);
       }
+
+      // Player-vs-building collision runs in BOTH modes. The server
+      // currently has no city geometry (see `backend/src/sim/room.ts`),
+      // so the client owns building damage in v1. The reconcile path in
+      // `prediction.ts` is intentionally min-clamped on `lives` so it
+      // can't undo a client-side hit on the next snapshot.
+      updatePlayerCollisionSystem(state, city, trail);
 
       updateDeathSystem(state, plane, canvas);
       updateCameraSystem(camera, state, dt);
@@ -168,8 +178,11 @@ async function bootstrap(): Promise<void> {
       if (state.isNetworked) {
         netRender(state, netSys);
         renderRemoteProjectiles(state, pmesh);
-        renderRemotePlanes(state, alpha);
+        renderRemotePlanes(state);
       }
+      // `alpha` is the inter-tick render fraction; currently unused by
+      // the renderer itself but kept for future smoothed visuals.
+      void alpha;
       renderer.render(scene, camera);
     },
   });

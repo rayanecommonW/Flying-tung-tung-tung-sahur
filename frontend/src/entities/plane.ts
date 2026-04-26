@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { loadGLTF } from '../utils/loaders';
 import type { PlayerState, Vec3, Vec4 } from '@flying-tung-tung/shared';
 
-const PLAYER_LENGTH = 6; // target length in world units after scaling
+const PLAYER_LENGTH = 12; // target length in world units after scaling
 
 export interface PlaneEntity {
   /** Top-level group whose transform we manipulate per-frame. */

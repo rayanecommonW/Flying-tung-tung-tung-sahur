@@ -1,0 +1,172 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #050a14;
+  color: #e8edf5;
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  cursor: crosshair;
+}
+
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud__crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.hud__crosshair::before,
+.hud__crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.hud__crosshair::before {
+  top: 50%;
+  left: -10px;
+  right: -10px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.hud__crosshair::after {
+  left: 50%;
+  top: -10px;
+  bottom: -10px;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.hud__corner {
+  position: absolute;
+  padding: 14px 18px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.hud__corner--tl {
+  top: 0;
+  left: 0;
+}
+.hud__corner--bl {
+  bottom: 0;
+  left: 0;
+}
+.hud__corner--br {
+  bottom: 0;
+  right: 0;
+}
+
+.hud__hint strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  color: #ffd089;
+}
+.hud__hint span {
+  opacity: 0.85;
+}
+
+.hud__gauge {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: rgba(8, 14, 28, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.hud__gauge-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  opacity: 0.7;
+}
+
+.hud__gauge-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #ffd089;
+  min-width: 56px;
+  text-align: right;
+}
+
+.hud__gauge-unit {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.loading {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 40%, #112240 0%, #050a14 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: opacity 0.4s ease;
+}
+
+.loading.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading__inner {
+  text-align: center;
+}
+
+.loading__title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #ffd089;
+  margin-bottom: 12px;
+}
+
+.loading__msg {
+  font-size: 14px;
+  opacity: 0.7;
+  letter-spacing: 0.05em;
+}
+
+.turbo-active .hud__gauge-value {
+  color: #ff6b3d;
+  text-shadow: 0 0 8px rgba(255, 107, 61, 0.6);
+}

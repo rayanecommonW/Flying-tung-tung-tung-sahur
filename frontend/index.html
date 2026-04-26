@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flying Tung Tung</title>
+    <link rel="stylesheet" href="/src/ui/hud.css" />
+  </head>
+  <body>
+    <canvas id="game-canvas"></canvas>
+
+    <div id="hud" class="hud">
+      <div class="hud__crosshair" aria-hidden="true"></div>
+
+      <div class="hud__corner hud__corner--tl">
+        <div class="hud__hint">
+          <strong>Flying Tung Tung</strong>
+          <span>Move mouse to steer · Click to shoot · Right-click for turbo</span>
+        </div>
+      </div>
+
+      <div class="hud__corner hud__corner--bl">
+        <div class="hud__gauge">
+          <span class="hud__gauge-label">SPEED</span>
+          <span id="hud-speed" class="hud__gauge-value">0</span>
+          <span class="hud__gauge-unit">u/s</span>
+        </div>
+      </div>
+
+      <div class="hud__corner hud__corner--br">
+        <div class="hud__gauge">
+          <span class="hud__gauge-label">TURBO</span>
+          <span id="hud-turbo" class="hud__gauge-value">OFF</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="loading__inner">
+        <div class="loading__title">Flying Tung Tung</div>
+        <div class="loading__msg" id="loading-msg">Loading…</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

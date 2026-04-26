@@ -51,14 +51,24 @@ export function buildCity(scene: THREE.Scene, lib: PropLibrary): CityResult {
 
   const half = (CITY.GRID_SIZE * CITY.CELL_SIZE) / 2;
 
+  // Center cell where the player respawns. Cells inside the safe radius are
+  // force-empty so respawn always has clear air.
+  const spawnCellX = Math.floor(CITY.GRID_SIZE / 2);
+  const spawnCellZ = Math.floor(CITY.GRID_SIZE / 2);
+
   // First pass: decide what's in each cell.
   const plans: CellPlan[][] = [];
   for (let x = 0; x < CITY.GRID_SIZE; x++) {
     plans.push([]);
     for (let z = 0; z < CITY.GRID_SIZE; z++) {
+      const cdx = Math.abs(x - spawnCellX);
+      const cdz = Math.abs(z - spawnCellZ);
+      const inSpawnPlaza = Math.max(cdx, cdz) <= CITY.SPAWN_SAFE_RADIUS_CELLS;
+
       const r = rng();
       let kind: CellPlan['kind'] = 'building';
-      if (r < CITY.EMPTY_CHANCE) kind = 'empty';
+      if (inSpawnPlaza) kind = 'empty';
+      else if (r < CITY.EMPTY_CHANCE) kind = 'empty';
       else if (r < CITY.EMPTY_CHANCE + CITY.PARK_CHANCE) kind = 'park';
 
       const propId =
@@ -73,12 +83,23 @@ export function buildCity(scene: THREE.Scene, lib: PropLibrary): CityResult {
             ? treeProp
             : '';
 
-      const height =
-        kind === 'building'
-          ? CITY.HEIGHT_MIN + rng() * (CITY.HEIGHT_MAX - CITY.HEIGHT_MIN)
-          : kind === 'park'
-            ? 4 + rng() * 4
-            : 0;
+      // Building heights:
+      //  - rare super-tall: small chance, height is its own range so a few
+      //    landmark towers really stand out;
+      //  - otherwise gamma-curved roll keeps most buildings short with a
+      //    long tail, plus a small per-cell skyscraper bonus.
+      let height = 0;
+      if (kind === 'building') {
+        if (rng() < CITY.SUPERTALL_CHANCE) {
+          height = CITY.SUPERTALL_BASE + rng() * CITY.SUPERTALL_RANGE;
+        } else {
+          const baseRoll = Math.pow(rng(), CITY.HEIGHT_GAMMA);
+          height = CITY.HEIGHT_MIN + baseRoll * (CITY.HEIGHT_MAX - CITY.HEIGHT_MIN);
+          if (rng() < CITY.SKYSCRAPER_CHANCE) height *= CITY.SKYSCRAPER_MULT;
+        }
+      } else if (kind === 'park') {
+        height = 4 + rng() * 4;
+      }
 
       const rotation = Math.floor(rng() * 4) * (Math.PI / 2);
       plans[x]!.push({ kind, propId, height, rotation });

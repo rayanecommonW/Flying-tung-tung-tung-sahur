@@ -41,14 +41,21 @@ function makeFallbackProp(id: string): PropTemplate {
   // Slightly different colors per id so dev cities still look varied.
   const hue = ((Array.from(id).reduce((a, c) => a + c.charCodeAt(0), 0) * 53) % 360) / 360;
   const color = new THREE.Color().setHSL(hue, 0.35, 0.55);
+  // CRUCIAL: translate so local-Y is [0, 1] instead of [-0.5, 0.5]. The city
+  // builder records building AABBs as { minY: 0, maxY: heightScale * size.y },
+  // which only matches the *visible* mesh if the geometry's base sits at
+  // local y=0. Without this translate the fallback cubes' visual extent
+  // would be offset by half a building height from their AABB, producing
+  // phantom mid-air collisions ("random damage").
   const geometry = new THREE.BoxGeometry(1, 1, 1);
+  geometry.translate(0, 0.5, 0);
   const material = new THREE.MeshLambertMaterial({ color });
   return {
     id,
     geometry,
     material,
     size: new THREE.Vector3(1, 1, 1),
-    baseOffsetY: 0.5,
+    baseOffsetY: 0,
   };
 }
 

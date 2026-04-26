@@ -15,7 +15,7 @@
       <div class="hud__corner hud__corner--tl">
         <div class="hud__hint">
           <strong>Flying Tung Tung</strong>
-          <span>Move mouse to steer · Click to shoot · Right-click for turbo</span>
+          <span>Mouse steers · Left-click turbo · Right-click side-barrel · K to shoot · Esc releases mouse</span>
         </div>
       </div>
 
@@ -25,6 +25,14 @@
           <span id="hud-speed" class="hud__gauge-value">0</span>
           <span class="hud__gauge-unit">u/s</span>
         </div>
+        <div id="hud-lives" class="hud__lives" aria-label="Lives remaining">
+          <span class="hud__lives-label">LIVES</span>
+          <span class="hud__life"></span>
+          <span class="hud__life"></span>
+          <span class="hud__life"></span>
+          <span class="hud__life"></span>
+          <span class="hud__life"></span>
+        </div>
       </div>
 
       <div class="hud__corner hud__corner--br">
@@ -32,6 +40,21 @@
           <span class="hud__gauge-label">TURBO</span>
           <span id="hud-turbo" class="hud__gauge-value">OFF</span>
         </div>
+      </div>
+    </div>
+
+    <div id="pointer-hint" class="pointer-hint is-hidden">
+      <div class="pointer-hint__inner">
+        <div class="pointer-hint__title">Click to play</div>
+        <div class="pointer-hint__sub">Mouse steers · Left-click turbo · Right-click side-barrel · K to shoot · Esc to release</div>
+      </div>
+    </div>
+
+    <div id="respawn-modal" class="respawn-modal is-hidden">
+      <div class="respawn-modal__inner">
+        <div class="respawn-modal__title">You ran out of lives</div>
+        <div class="respawn-modal__sub">Click Respawn to fly again — full lives, fresh start.</div>
+        <button id="respawn-btn" class="respawn-modal__btn" type="button">Respawn</button>
       </div>
     </div>
 

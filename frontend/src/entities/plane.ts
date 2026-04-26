@@ -12,6 +12,8 @@ export interface PlaneEntity {
   model: THREE.Object3D;
   /** Z-offset of the nose in local space (positive = forward). */
   noseOffset: number;
+  /** Z-offset of the tail in local space (positive value, used as `-tailOffset`). */
+  tailOffset: number;
   /** Animation mixer if the GLB has clips. */
   mixer: THREE.AnimationMixer | null;
 }
@@ -33,9 +35,10 @@ export async function createPlane(modelUrl: string): Promise<PlaneEntity> {
   bbox.getCenter(center).multiplyScalar(scale);
   model.position.sub(center);
 
-  // Recompute bbox to derive nose offset along +Z.
+  // Recompute bbox to derive nose/tail offsets along the Z axis.
   const bbox2 = new THREE.Box3().setFromObject(model);
   const noseOffset = bbox2.max.z + 0.5;
+  const tailOffset = -bbox2.min.z + 0.2;
 
   const group = new THREE.Group();
   group.add(model);
@@ -47,37 +50,53 @@ export async function createPlane(modelUrl: string): Promise<PlaneEntity> {
     mixer.clipAction(clip).play();
   }
 
-  return { group, model, noseOffset, mixer };
+  return { group, model, noseOffset, tailOffset, mixer };
 }
 
+// Scratch objects to avoid per-frame allocations.
+const _q = new THREE.Quaternion();
+const _qRoll = new THREE.Quaternion();
+const _rollAxis = new THREE.Vector3(0, 0, 1);
+
 /**
- * Apply (position, yaw, pitch, roll) to the plane group.
- * Convention: yaw around Y, then pitch around X, then roll around Z.
- * Local -Z would be "forward" for default Three.js cameras; we use +Z
- * here so positive forward speed pushes the plane in the direction
- * `group.getWorldDirection()` points.
+ * Apply orientation quaternion + visual roll(s) to the plane group.
+ *
+ * Composition: orientation × banking roll × dodge roll. Both rolls are
+ * visual-only (not stored back into orientation) so they decay/end cleanly
+ * without leaving the plane in a tilted heading.
  */
 export function applyPose(plane: PlaneEntity, state: PlayerState): void {
   plane.group.position.set(state.position.x, state.position.y, state.position.z);
-  plane.group.rotation.set(0, 0, 0);
-  plane.group.rotateY(state.yaw);
-  plane.group.rotateX(state.pitch);
-  plane.group.rotateZ(state.roll);
+  _q.set(state.orientation.x, state.orientation.y, state.orientation.z, state.orientation.w);
+  const totalRoll = state.roll + state.dodgeRoll;
+  if (totalRoll !== 0) {
+    _qRoll.setFromAxisAngle(_rollAxis, totalRoll);
+    _q.multiply(_qRoll);
+  }
+  plane.group.quaternion.copy(_q);
 }
 
-/** Compute world-space forward unit vector (+Z in local). */
+const _fwdScratch = new THREE.Quaternion();
+
+/** Compute world-space forward unit vector (local +Z transformed by orientation). */
 export function planeForward(state: PlayerState, out = new THREE.Vector3()): THREE.Vector3 {
-  // Same rotation convention as applyPose.
-  const q = new THREE.Quaternion();
-  const e = new THREE.Euler(state.pitch, state.yaw, state.roll, 'YXZ');
-  q.setFromEuler(e);
-  out.set(0, 0, 1).applyQuaternion(q);
+  _fwdScratch.set(state.orientation.x, state.orientation.y, state.orientation.z, state.orientation.w);
+  out.set(0, 0, 1).applyQuaternion(_fwdScratch);
   return out;
 }
 
 /** Compute world-space nose position. */
 export function planeNose(plane: PlaneEntity, state: PlayerState, out = new THREE.Vector3()): THREE.Vector3 {
   planeForward(state, out).multiplyScalar(plane.noseOffset);
+  out.x += state.position.x;
+  out.y += state.position.y;
+  out.z += state.position.z;
+  return out;
+}
+
+/** Compute world-space tail position (used as the particle emission anchor). */
+export function planeTail(plane: PlaneEntity, state: PlayerState, out = new THREE.Vector3()): THREE.Vector3 {
+  planeForward(state, out).multiplyScalar(-plane.tailOffset);
   out.x += state.position.x;
   out.y += state.position.y;
   out.z += state.position.z;

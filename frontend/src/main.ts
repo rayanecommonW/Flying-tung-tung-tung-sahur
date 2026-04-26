@@ -9,13 +9,17 @@ import { buildCity } from './world/city';
 import { preloadPropLibrary } from './world/propLibrary';
 import { createPlane, applyPose } from './entities/plane';
 import { createProjectileMesh } from './entities/projectile';
+import { createParticleTrail } from './entities/particleTrail';
 import { attachMouse } from './input/mouse';
 import { createGameState } from './game/gameState';
 import { startGameLoop } from './game/gameLoop';
 import { updatePlaneController } from './game/systems/planeController';
 import { updateProjectileSystem } from './game/systems/projectileSystem';
 import { updateCollisionSystem } from './game/systems/collisionSystem';
+import { updatePlayerCollisionSystem } from './game/systems/playerCollisionSystem';
+import { updateDeathSystem } from './game/systems/deathSystem';
 import { updateCameraSystem } from './game/systems/cameraSystem';
+import { updateParticleSystem } from './game/systems/particleSystem';
 import { hideLoading, setLoadingMessage, updateHud } from './game/systems/hudSystem';
 
 async function bootstrap(): Promise<void> {
@@ -48,11 +52,16 @@ async function bootstrap(): Promise<void> {
 
   // ===== Projectiles =====
   const pmesh = createProjectileMesh();
-  scene.add(pmesh.mesh);
+  scene.add(pmesh.core);
+  scene.add(pmesh.halo);
+
+  // ===== Particle trail (also used as the impact-burst pool) =====
+  const trail = createParticleTrail();
+  scene.add(trail.points);
 
   // ===== State + input =====
   const state = createGameState();
-  attachMouse(state.input);
+  attachMouse(canvas, state.input);
 
   // ===== Loop =====
   hideLoading();
@@ -60,11 +69,19 @@ async function bootstrap(): Promise<void> {
     update: (dt) => {
       state.time += dt;
       updatePlaneController(state, dt);
-      updateProjectileSystem(state, plane, pmesh, dt);
-      updateCollisionSystem(state, city);
+      updateProjectileSystem(state, plane, pmesh, trail, dt);
+      updateCollisionSystem(state, city, trail);
+      updatePlayerCollisionSystem(state, city, trail);
+      updateDeathSystem(state, plane, canvas);
       updateCameraSystem(camera, state, dt);
-      applyPose(plane, state.player);
-      if (plane.mixer) plane.mixer.update(dt);
+      updateParticleSystem(state, plane, trail, dt);
+      if (!state.player.dead) applyPose(plane, state.player);
+      if (plane.mixer && !state.player.dead) plane.mixer.update(dt);
+      // Flicker the plane mesh during post-hit / post-respawn immunity.
+      if (!state.player.dead) {
+        const immune = state.time < state.immunityUntil;
+        plane.group.visible = !immune || Math.floor(state.time * 14) % 2 === 0;
+      }
       updateHud(state);
     },
     render: () => {

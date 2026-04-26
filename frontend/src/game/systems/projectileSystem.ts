@@ -5,23 +5,34 @@ import type { GameState } from '../gameState';
 import type { ProjectileMesh } from '../../entities/projectile';
 import type { PlaneEntity } from '../../entities/plane';
 import { planeForward, planeNose } from '../../entities/plane';
+import type { ParticleTrail } from '../../entities/particleTrail';
+import { spawnBurst, BurstKind } from './particleSystem';
 
 const _nose = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 const _matrix = new THREE.Matrix4();
+const _haloMatrix = new THREE.Matrix4();
 const _pos = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
 const _scale = new THREE.Vector3(1, 1, 1);
+const _haloScale = new THREE.Vector3(1, 1, 1);
 const _zero = new THREE.Vector3(0, 0, 0);
+const _zeroScale = new THREE.Vector3(0, 0, 0);
+const _impactPos = new THREE.Vector3();
 
 /**
  * Spawns + advances projectiles. Writes per-instance matrices into the
- * shared InstancedMesh and marks it dirty.
+ * shared core + halo InstancedMeshes and marks them dirty.
+ *
+ * Ground impacts ("y <= 0") emit a small dust burst into the trail's
+ * particle pool. Building impacts are detected and bursted by the
+ * collision system, which has access to per-cell AABB lookups.
  */
 export function updateProjectileSystem(
   state: GameState,
   plane: PlaneEntity,
   pmesh: ProjectileMesh,
+  trail: ParticleTrail,
   dt: number
 ): void {
   // ===== Spawn (edge-triggered) =====
@@ -51,6 +62,7 @@ export function updateProjectileSystem(
     if (!p.alive) continue;
     p.ageSec += dt;
     if (p.ageSec >= PROJECTILE.LIFETIME_SEC) {
+      // Lifetime expiry — silent, no burst.
       p.alive = false;
       continue;
     }
@@ -58,20 +70,28 @@ export function updateProjectileSystem(
     p.position.y += p.velocity.y * dt;
     p.position.z += p.velocity.z * dt;
 
-    // Ground collision (cheap shortcut, real check happens in collisionSystem).
-    if (p.position.y <= 0) p.alive = false;
+    // Ground impact — kill + dust burst.
+    if (p.position.y <= 0) {
+      _impactPos.set(p.position.x, 0.05, p.position.z);
+      spawnBurst(trail, _impactPos, BurstKind.Ground, state.time);
+      p.alive = false;
+    }
   }
 
-  // ===== Push instance matrices =====
+  // ===== Push instance matrices for both layers =====
   for (let i = 0; i < state.projectiles.length; i++) {
     const p = state.projectiles[i]!;
     if (p.alive) {
       _pos.set(p.position.x, p.position.y, p.position.z);
       _matrix.compose(_pos, _quat, _scale);
+      _haloMatrix.compose(_pos, _quat, _haloScale);
     } else {
-      _matrix.compose(_zero, _quat, _zero);
+      _matrix.compose(_zero, _quat, _zeroScale);
+      _haloMatrix.compose(_zero, _quat, _zeroScale);
     }
-    pmesh.mesh.setMatrixAt(i, _matrix);
+    pmesh.core.setMatrixAt(i, _matrix);
+    pmesh.halo.setMatrixAt(i, _haloMatrix);
   }
-  pmesh.mesh.instanceMatrix.needsUpdate = true;
+  pmesh.core.instanceMatrix.needsUpdate = true;
+  pmesh.halo.instanceMatrix.needsUpdate = true;
 }

@@ -29,7 +29,8 @@ export interface JoinPayload {
 export interface InputPayload {
   /** Server tick (filled by client when sending). */
   tick: number;
-  cursorNdc: { x: number; y: number };
+  /** Accumulated mouse pixel deltas since the last input frame. */
+  mouseDelta: { x: number; y: number };
   turbo: boolean;
 }
 

@@ -1,12 +1,23 @@
+import * as THREE from 'three';
+
 import type { GameState } from '../gameState';
 import type { CityResult } from '../../world/city';
 import { worldToCellKey } from '../../world/city';
+import type { ParticleTrail } from '../../entities/particleTrail';
+import { spawnBurst, BurstKind } from './particleSystem';
+
+const _impactPos = new THREE.Vector3();
 
 /**
  * Tests live projectiles against the city's per-cell building AABBs.
- * Despawns hits. Cosmetic effects can be hooked in later.
+ * On hit: kill the projectile and emit a small boom into the trail's
+ * particle pool so the player gets clear visual feedback.
  */
-export function updateCollisionSystem(state: GameState, city: CityResult): void {
+export function updateCollisionSystem(
+  state: GameState,
+  city: CityResult,
+  trail: ParticleTrail
+): void {
   for (const p of state.projectiles) {
     if (!p.alive) continue;
 
@@ -26,6 +37,8 @@ export function updateCollisionSystem(state: GameState, city: CityResult): void 
         p.position.z >= b.minZ &&
         p.position.z <= b.maxZ
       ) {
+        _impactPos.set(p.position.x, p.position.y, p.position.z);
+        spawnBurst(trail, _impactPos, BurstKind.Building, state.time);
         p.alive = false;
         break;
       }

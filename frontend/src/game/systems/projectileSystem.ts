@@ -95,3 +95,41 @@ export function updateProjectileSystem(
   pmesh.core.instanceMatrix.needsUpdate = true;
   pmesh.halo.instanceMatrix.needsUpdate = true;
 }
+
+const _rPos = new THREE.Vector3();
+const _rMat = new THREE.Matrix4();
+const _rQuat = new THREE.Quaternion();
+const _rScale = new THREE.Vector3(1, 1, 1);
+const _rZero = new THREE.Vector3();
+const _rZeroScale = new THREE.Vector3(0, 0, 0);
+
+/**
+ * Render server-spawned projectiles into the existing InstancedMesh pool.
+ * Replaces the local-spawn path of `updateProjectileSystem` when the game
+ * is running in network mode — bullet positions come straight from
+ * `state.remoteProjectiles` (which was populated/interpolated by the
+ * netSystem).
+ */
+export function renderRemoteProjectiles(
+  state: GameState,
+  pmesh: ProjectileMesh
+): void {
+  let i = 0;
+  const cap = pmesh.core.count;
+  for (const p of state.remoteProjectiles.values()) {
+    if (i >= cap) break;
+    if (!p.alive) continue;
+    _rPos.set(p.position.x, p.position.y, p.position.z);
+    _rMat.compose(_rPos, _rQuat, _rScale);
+    pmesh.core.setMatrixAt(i, _rMat);
+    pmesh.halo.setMatrixAt(i, _rMat);
+    i++;
+  }
+  for (; i < cap; i++) {
+    _rMat.compose(_rZero, _rQuat, _rZeroScale);
+    pmesh.core.setMatrixAt(i, _rMat);
+    pmesh.halo.setMatrixAt(i, _rMat);
+  }
+  pmesh.core.instanceMatrix.needsUpdate = true;
+  pmesh.halo.instanceMatrix.needsUpdate = true;
+}

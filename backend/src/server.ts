@@ -1,16 +1,12 @@
 import { Hono } from 'hono';
-import { Server } from 'socket.io';
 
 /**
- * Backend server scaffold for Flying Tung Tung.
- *
- * This is intentionally minimal — only a /health route is wired up.
- * The Socket.IO server is constructed but no event handlers are attached,
- * so it simply waits to be plugged in once we begin real-time PvP work.
- *
- * See plans/07_BACKEND_STUB.md for the migration plan.
+ * Minimal HTTP service: exposes `/health` and a hello-world index.
+ * The Socket.IO game traffic runs on its own port (see [`backend/src/index.ts`](backend/src/index.ts))
+ * because `@socket.io/bun-engine` 0.0.3 doesn't yet support same-port wiring
+ * cleanly. Once the engine matures we can fold both into a single Bun.serve.
  */
-export function createServer(): { fetch: (req: Request) => Response | Promise<Response>; io: Server } {
+export function createServer(): { fetch: (req: Request) => Response | Promise<Response> } {
   const app = new Hono();
 
   app.get('/', (c) => c.text('flying-tung-tung backend ok'));
@@ -22,13 +18,7 @@ export function createServer(): { fetch: (req: Request) => Response | Promise<Re
     })
   );
 
-  // Socket.IO instance ready for future PvP. Intentionally no listeners.
-  const io = new Server({
-    cors: { origin: '*' },
-  });
-
   return {
     fetch: app.fetch as unknown as (req: Request) => Response | Promise<Response>,
-    io,
   };
 }

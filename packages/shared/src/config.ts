@@ -198,3 +198,100 @@ export const PARTICLES = {
 
 /** Fixed simulation timestep used by the deterministic game loop. */
 export const FIXED_DT = 1 / 60;
+
+/**
+ * Wire-protocol version. Bumped on any breaking event-shape change.
+ * The server kicks mismatched clients with `kicked.reason = 'version-mismatch'`.
+ */
+export const PROTOCOL_VERSION = 1;
+
+/**
+ * Networking tunables shared by client and server.
+ * See `plans/networking/00_OVERVIEW.md` for derivation/rationale.
+ */
+export const NET = {
+  // ===== Tick + snapshot rates =====
+  /** Authoritative server simulation rate (Hz). */
+  SERVER_TICK_HZ: 30,
+  /** Server tick period (ms). */
+  SERVER_TICK_MS: 1000 / 30,
+  /** Snapshot broadcast rate (Hz). */
+  SNAPSHOT_HZ: 20,
+  /** Snapshot broadcast period (ms). */
+  SNAPSHOT_MS: 1000 / 20,
+  /** Client input upload rate (Hz). Client physics still runs at 60 Hz. */
+  CLIENT_INPUT_SEND_HZ: 30,
+
+  // ===== Interpolation =====
+  /** Render-time delay behind serverTimeNow() for remote-entity interp (ms). */
+  INTERP_DELAY_MS: 100,
+  /** Max ms past last sample we'll extrapolate before freezing. */
+  EXTRAPOLATION_CAP_MS: 150,
+  /** Per-entity ring-buffer size for snapshot history. 60 ≈ 3 s @ 20 Hz. */
+  REMOTE_SNAPSHOT_BUFFER_MAX: 60,
+
+  // ===== Clock sync =====
+  /** Initial K-sample sync count on connect. */
+  CLOCK_SYNC_INITIAL_SAMPLES: 5,
+  /** Pause between initial sync samples (ms). */
+  CLOCK_SYNC_PAUSE_MS: 200,
+  /** Maintenance ping period after initial sync (ms). */
+  CLOCK_SYNC_MAINTENANCE_MS: 1000,
+  /** EMA coefficient for offset/RTT smoothing. */
+  CLOCK_SYNC_EMA_ALPHA: 0.12,
+  /** Drift threshold (ms) that triggers a full re-sync. */
+  CLOCK_SYNC_DRIFT_RESYNC_MS: 80,
+  /** RTT spike threshold (ms) that triggers a full re-sync. */
+  CLOCK_SYNC_RTT_SPIKE_MS: 180,
+  /** Per-ping wait time before a sample is dropped (ms). */
+  CLOCK_SYNC_PING_TIMEOUT_MS: 1500,
+
+  // ===== Room / lifecycle =====
+  /** Max players per room. */
+  MAX_PLAYERS_PER_ROOM: 16,
+  /** Server-side heartbeat: kick if no input for this long (ms). */
+  HEARTBEAT_TIMEOUT_MS: 15000,
+  /** "Must hello" deadline after socket connects (ms). */
+  HELLO_DEADLINE_MS: 5000,
+
+  // ===== Prediction =====
+  /** Local input ring buffer size (~2.1 s at 60 Hz). */
+  INPUT_BUFFER_RING_SIZE: 128,
+  /** Below this position-error metric, prediction is trusted as-is. */
+  PRED_SOFT_THRESHOLD_M: 0.25,
+  /** Above this position error, snap hard to server pose. */
+  PRED_HARD_THRESHOLD_M: 5.0,
+  /** Per-snapshot lerp factor when soft-correcting. */
+  PRED_SMOOTH_RATE: 0.2,
+  /** Per-snapshot slerp factor when soft-correcting orientation. */
+  PRED_SMOOTH_QSLERP: 0.3,
+
+  // ===== Hit detection =====
+  /** Sphere radius around a player for projectile-hit checks. */
+  HIT_RADIUS_PLAYER: 2.5,
+  /** Sphere radius for a projectile (matches PROJECTILE.RADIUS). */
+  HIT_RADIUS_PROJECTILE: 0.7,
+  /** Lives subtracted per projectile hit. */
+  PROJECTILE_DAMAGE: 1,
+
+  // ===== Spawn / nose offset =====
+  /**
+   * Hard-coded forward offset from a plane's centroid to its nose for
+   * projectile spawning. The frontend's `createPlane` derives this from
+   * the GLB bbox (~3.5 m for tung-tung.glb); the server has no GLB so we
+   * freeze it as a constant. See `plans/networking/03_SERVER_SIM.md`.
+   */
+  PLAYER_NOSE_OFFSET: 3.5,
+  /** Radius around plaza centre for the 8-spawn ring (world units). */
+  SPAWN_RING_RADIUS: 60,
+  /** Spawn altitude above the ground. */
+  SPAWN_ALTITUDE: 80,
+
+  // ===== World safety =====
+  /**
+   * Server-side world clamp: positions are clipped inside this sphere
+   * radius. Mirrors the per-axis clamps in `PLANE.WORLD_*` and prevents
+   * runaway floats. Set generous so it never bites in normal play.
+   */
+  WORLD_CLAMP_RADIUS: 2400,
+} as const;

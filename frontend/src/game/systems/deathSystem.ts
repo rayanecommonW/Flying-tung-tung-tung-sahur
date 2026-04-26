@@ -80,15 +80,22 @@ export function updateDeathSystem(
       document.exitPointerLock();
     }
   }
+  // Detect dead → alive transition (server respawn in net mode).
+  if (!state.player.dead && lastDead) {
+    state.input.allowLock = true;
+  }
   lastDead = state.player.dead;
 
   // Plane visibility tracks alive state.
   plane.group.visible = !state.player.dead;
 
   // Respawn click consumed?
+  // In network mode the server auto-respawns and the snapshot/respawn event
+  // resets pose; we ignore the click but still allow pointer lock to come
+  // back (the click handler in `ensureButtonHandler` already requested it).
   if (respawnRequested) {
     respawnRequested = false;
-    if (state.player.dead) {
+    if (state.player.dead && !state.isNetworked) {
       resetForRespawn(state);
       plane.group.visible = true;
     }

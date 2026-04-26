@@ -86,6 +86,16 @@ export function updatePlaneController(state: GameState, dt: number): void {
   const yawAmount = softLimit(yawRaw, PLANE.MAX_TURN_PER_TICK);
   const pitchAmount = softLimit(pitchRaw, PLANE.MAX_TURN_PER_TICK);
 
+  // Export the pre-saturated [-1, +1] axes for the network input upload.
+  // The netSystem reads these every other 60 Hz tick and packs them into
+  // an `InputPayload`. See `frontend/src/net/netSystem.ts`.
+  state.netInputAxes.yaw = PLANE.MAX_TURN_PER_TICK > 0
+    ? yawAmount / PLANE.MAX_TURN_PER_TICK
+    : 0;
+  state.netInputAxes.pitch = PLANE.MAX_TURN_PER_TICK > 0
+    ? pitchAmount / PLANE.MAX_TURN_PER_TICK
+    : 0;
+
   // 3. Track derivative rates (rad/sec) for HUD/FX consumers.
   state.yawRate = dt > 0 ? yawAmount / dt : 0;
   state.pitchRate = dt > 0 ? pitchAmount / dt : 0;

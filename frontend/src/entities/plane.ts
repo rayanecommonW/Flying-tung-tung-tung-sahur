@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import { loadGLTF } from '../utils/loaders';
-import type { PlayerState } from '@flying-tung-tung/shared';
+import type { PlayerState, Vec3, Vec4 } from '@flying-tung-tung/shared';
 
 const PLAYER_LENGTH = 6; // target length in world units after scaling
 
@@ -101,4 +101,16 @@ export function planeTail(plane: PlaneEntity, state: PlayerState, out = new THRE
   out.y += state.position.y;
   out.z += state.position.z;
   return out;
+}
+
+/**
+ * Apply a pose pulled straight from a remote-player view (raw Vec3 + quat).
+ * Cheaper than `applyPose` because there's no roll composition — remote
+ * players' visual roll already lives inside the interpolated quaternion.
+ */
+const _qRaw = new THREE.Quaternion();
+export function applyRawPose(group: THREE.Group, position: Vec3, orientation: Vec4): void {
+  group.position.set(position.x, position.y, position.z);
+  _qRaw.set(orientation.x, orientation.y, orientation.z, orientation.w);
+  group.quaternion.copy(_qRaw);
 }

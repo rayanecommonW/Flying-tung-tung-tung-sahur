@@ -1,12 +1,20 @@
-import type { PlayerInput, PlayerState, ProjectileState } from '@flying-tung-tung/shared';
-import { PLAYER, PROJECTILE } from '@flying-tung-tung/shared';
+import type {
+  PlayerInput,
+  PlayerState,
+  ProjectileState,
+  Vec3,
+  Vec4,
+  SpawnEventDto,
+  DespawnEventDto,
+  HitEventDto,
+  DeathEventDto,
+  RespawnEventDto,
+} from '@flying-tung-tung/shared';
+import { CITY, PLAYER, PROJECTILE } from '@flying-tung-tung/shared';
+import type { RemotePlayerView, RemoteProjectileView } from '../net/interpolation';
 
 /**
  * Side-barrel dodge state — see `plans/10_DODGE_AND_DEATH.md`.
- *
- * `active` true means the dodge is currently animating (rotating + sliding).
- * `cooldownUntil` is the earliest sim-time at which a new dodge can be
- * triggered after the current one ends.
  */
 export interface DodgeState {
   active: boolean;
@@ -17,12 +25,42 @@ export interface DodgeState {
   cooldownUntil: number;
 }
 
+/** Pre-saturated control axes (output of mouse → controller). */
+export interface NetInputAxes {
+  pitch: number;
+  yaw: number;
+}
+
+/** Buffered server-broadcast events kept around for cosmetic + flow consumers. */
+export interface NetEventsQueue {
+  spawns: SpawnEventDto[];
+  despawns: DespawnEventDto[];
+  hits: HitEventDto[];
+  deaths: DeathEventDto[];
+  respawns: RespawnEventDto[];
+}
+
+/**
+ * Mirror visual handle for a remote player. The actual `THREE.Group` and
+ * its mixer live here so the game-state stays the single source of truth
+ * for "which planes are spawned right now".
+ */
+export interface RemotePlayerVisual {
+  id: string;
+  /** Parent group whose transform we drive each render frame. */
+  group: import('three').Group;
+  mixer: import('three').AnimationMixer | null;
+  /** The clone of the model we attached under `group`. */
+  model: import('three').Object3D;
+  dispose(): void;
+}
+
 export interface GameState {
   /** Total elapsed sim time (sec). */
   time: number;
   /** Local player. (Future: a Map<id, PlayerState>.) */
   player: PlayerState;
-  /** Pool of projectiles, fixed size. */
+  /** Pool of projectiles, fixed size (single-player legacy). */
   projectiles: ProjectileState[];
   /** Last shot timestamp for cooldown. */
   lastShotAt: number;
@@ -48,9 +86,29 @@ export interface GameState {
   immunityUntil: number;
   /** Current input snapshot. */
   input: PlayerInput;
+
+  // ===== Multiplayer fields (filled by netSystem) =====
+
+  /** Latest pre-saturated axes computed by `planeController` for upload. */
+  netInputAxes: NetInputAxes;
+  /** Authoritative city seed (overrides `CITY.SEED` once welcome lands). */
+  citySeed: number;
+  /** All non-self players, keyed by socket id. Pose interpolated per render. */
+  remotePlayers: Map<string, RemotePlayerView>;
+  /** Display names for remote players, keyed by id. */
+  remotePlayerNames: Map<string, string>;
+  /** Visual handles parallel to `remotePlayers` (one `THREE.Group` per id). */
+  remotePlayerVisuals: Map<string, RemotePlayerVisual>;
+  /** Server-spawned projectiles, keyed by id. Pose interpolated per render. */
+  remoteProjectiles: Map<number, RemoteProjectileView>;
+  /** Server-broadcast events queued between snapshots; consumers drain them. */
+  netEvents: NetEventsQueue;
+  /** True once a network session is up; gates the snapshot-driven death flow. */
+  isNetworked: boolean;
 }
 
-const SPAWN_POSITION = { x: 0, y: 80, z: 0 };
+const SPAWN_POSITION: Vec3 = { x: 0, y: 80, z: 0 };
+const SPAWN_ORIENTATION: Vec4 = { x: 0, y: 0, z: 0, w: 1 };
 
 export function createGameState(): GameState {
   const projectiles: ProjectileState[] = [];
@@ -71,7 +129,7 @@ export function createGameState(): GameState {
       id: 'local',
       position: { ...SPAWN_POSITION },
       velocity: { x: 0, y: 0, z: 1 },
-      orientation: { x: 0, y: 0, z: 0, w: 1 },
+      orientation: { ...SPAWN_ORIENTATION },
       yaw: 0,
       pitch: 0,
       roll: 0,
@@ -94,7 +152,6 @@ export function createGameState(): GameState {
       cooldownUntil: 0,
     },
     deathTime: -1,
-    // Grant a brief grace window at startup so the player can orient themselves.
     immunityUntil: PLAYER.IMMUNITY_SEC,
     input: {
       mouseDelta: { x: 0, y: 0 },
@@ -104,6 +161,22 @@ export function createGameState(): GameState {
       pointerLocked: false,
       allowLock: true,
     },
+
+    // Multiplayer fields — empty/sane until netSystem wires them up.
+    netInputAxes: { pitch: 0, yaw: 0 },
+    citySeed: CITY.SEED,
+    remotePlayers: new Map(),
+    remotePlayerNames: new Map(),
+    remotePlayerVisuals: new Map(),
+    remoteProjectiles: new Map(),
+    netEvents: {
+      spawns: [],
+      despawns: [],
+      hits: [],
+      deaths: [],
+      respawns: [],
+    },
+    isNetworked: false,
   };
 }
 
@@ -146,4 +219,32 @@ export function resetForRespawn(state: GameState): void {
   state.input.shootPressed = false;
   state.input.dodgePressed = false;
   state.input.turbo = false;
+}
+
+/**
+ * Snap the local player to a server-supplied spawn pose (used after a
+ * `respawn` event lands for our own id). Mirrors `resetForRespawn` but
+ * doesn't reset client-only HUD/dodge state — the net layer already
+ * decides those via the snapshot.
+ */
+export function applyServerRespawn(state: GameState, position: Vec3, orientation: Vec4): void {
+  state.player.position.x = position.x;
+  state.player.position.y = position.y;
+  state.player.position.z = position.z;
+  state.player.velocity.x = 0;
+  state.player.velocity.y = 0;
+  state.player.velocity.z = 0;
+  state.player.orientation.x = orientation.x;
+  state.player.orientation.y = orientation.y;
+  state.player.orientation.z = orientation.z;
+  state.player.orientation.w = orientation.w;
+  state.player.roll = 0;
+  state.player.dodgeRoll = 0;
+  state.player.dead = false;
+  state.player.turbo = false;
+  state.player.lives = PLAYER.MAX_LIVES;
+  state.deathTime = -1;
+  state.immunityUntil = state.time + PLAYER.IMMUNITY_SEC;
+  state.dodge.active = false;
+  state.dodge.cooldownUntil = state.time;
 }
